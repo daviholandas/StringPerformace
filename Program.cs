@@ -1,8 +1,6 @@
 ﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace StringPerformace
@@ -19,15 +17,13 @@ namespace StringPerformace
     [MemoryDiagnoser]
     public class QueryString
     {
-        string param;
-        
+       
         [Benchmark]
         public void RunBenchConcat()
         {
             for (int i = 0; i < 100; i++)
             {
-                CreateQueryStringConcat();
-                param = Guid.NewGuid().ToString();
+                CreateQueryStringConcat(Guid.NewGuid().ToString());
             }
         }
 
@@ -36,39 +32,39 @@ namespace StringPerformace
         {
             for (int i = 0; i < 100; i++)
             {
-                CreateQueryStringBuilder();
-                param = Guid.NewGuid().ToString();
+                CreateQueryStringBuilder(Guid.NewGuid().ToString());
             }
         }
 
-       [Benchmark]
-        public string CreateQueryStringConcat()
-            => $@"SELECT 
-                IncidentId, QueueId, QueueName, Name, CreatedDate, UpdateDate
-                from vw_Incidents_Report 
-                WHERE
-                ((CreatedDate >= @CreatedDateFrom or @CreatedDateFrom IS NULL) AND (CreatedDate <= @CreatedDateTo or @CreatedDateTo IS NULL))
-                AND ((UpdateDate >= @UpdatedDateFrom or @UpdatedDateFrom IS NULL) AND (UpdateDate <= @UpdatedDateTo or @UpdatedDateTo IS NULL))
-                AND (@IncidentId = 0 OR IncidentId = @IncidentId)
-                AND (@QueueId = 0 OR QueueId = @QueueId)
-                ORDER BY {Guid.NewGuid()} and {param}
-                OFFSET @Skip ROWS
-                FETCH NEXT @Take ROWS ONLY
-            ";
-       [Benchmark]
-        public  string CreateQueryStringBuilder()
+        public static string CreateQueryStringConcat(string trimmedSchema)
+            => $@"SELECT TOP 1 C.* FROM [{trimmedSchema}].[Customers] C 
+                INNER JOIN [{trimmedSchema}].[PaymentForms] PF ON PF.CustomerId = C.Id 
+                INNER JOIN [{trimmedSchema}].[PaymentConditions] PC ON PC.CustomerId = C.Id
+                 AND PC.CodePayment = PF.CodePayment 
+                 AND PC.CodePaymentTerm = @codePaymentTerm 
+                 AND PC.Status = 1 WHERE C.Status = 1 
+                 AND PF.CodePayment = @codePayment 
+                 AND PF.Status = 1";
+
+
+        public static string CreateQueryStringBuilder(string trimmedSchema)
         {
             var query = new StringBuilder();
-            query.Append("SELECT");
-            query.Append("IncidentId, QueueId, QueueName, Name, CreatedDate, UpdateDate");
-            query.Append("from vw_Incidents_Report");
-            query.Append("WHERE");
-            query.Append("((CreatedDate >= @CreatedDateFrom or @CreatedDateFrom IS NULL) AND(CreatedDate <= @CreatedDateTo or @CreatedDateTo IS NULL))");
-            query.Append("AND((UpdateDate >= @UpdatedDateFrom or @UpdatedDateFrom IS NULL) AND(UpdateDate <= @UpdatedDateTo or @UpdatedDateTo IS NULL))");
-            query.Append("AND(@IncidentId = 0 OR IncidentId = @IncidentId)");
-            query.Append("AND(@QueueId = 0 OR QueueId = @QueueId)");
-            query.AppendFormat("ORDER BY {0} and {1}", Guid.NewGuid(), param);
-            query.Append("OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY");
+            query.Append(" SELECT ");
+            query.Append("     TOP 1 C.* ");
+            query.Append(" FROM ");
+            query.Append($"     [{trimmedSchema}].[Customers] C ");
+            query.Append($" INNER JOIN [{trimmedSchema}].[PaymentForms] PF ON ");
+            query.Append("     PF.CustomerId = C.Id ");
+            query.Append($" INNER JOIN [{trimmedSchema}].[PaymentConditions] PC ON ");
+            query.Append("     PC.CustomerId = C.Id ");
+            query.Append("     AND PC.CodePayment = PF.CodePayment ");
+            query.Append("     AND PC.CodePaymentTerm = @codePaymentTerm ");
+            query.Append("     AND PC.Status = 1 "); 
+            query.Append(" WHERE ");
+            query.Append("     C.Status = 1 ");
+            query.Append("     AND PF.CodePayment = @codePayment ");
+            query.Append("     AND PF.Status = 1 ");
             return query.ToString();
         }
     }
